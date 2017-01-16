@@ -1,0 +1,26 @@
+{
+    "sensor_mappings": [
+        {
+            "min_value": 0, 
+            "value_volatility": 0.3, 
+            "max_value": 30, 
+            "remote_id": "", 
+            "local_id": "random-1", 
+            "mean_tic_msec": 5000, 
+            "measurand": "temperature", 
+            "tic_volatility": 0, 
+            "unit": "celsius"
+        }, 
+        {
+            "min_value": 0, 
+            "value_volatility": 20, 
+            "max_value": 15000, 
+            "remote_id": "", 
+            "local_id": "random-2", 
+            "mean_tic_msec": 20000, 
+            "measurand": "luminance", 
+            "tic_volatility": 10000, 
+            "unit": "lux"
+        }
+    ]
+}

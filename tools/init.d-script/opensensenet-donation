@@ -1,0 +1,63 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          opensense-donation
+# Required-Start:    $remote_fs $syslog $network $named $portmap $time
+# Required-Stop:     $remote_fs $syslog $network $named $portmap $time
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Initscript for OpenSenseNet donation
+# Description:       This script is used for handling OpenSenseNet Donation
+#                    like a usual daemon. It should be placed in /etc/init.d.
+### END INIT INFO
+
+# Author: Frank Pallas <frank.pallas@tu-berlin.de>
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="OpenSenseNet donation service"
+DIR=/opt/opensensenet/data_donation # To be corrected later
+DAEMON=$DIR/donation_agent_runner.py 
+DAEMON_OPTS=""
+DAEMON_NAME="opensensenet_donation"
+DAEMON_USER="root"
+PIDFILE=/var/run/$DAEMON_NAME.pid
+
+# Exit if opensensenet-donation not present
+[ -x "$DAEMON" ] || exit 0
+
+. /lib/lsb/init-functions
+
+
+do_start () {
+    log_daemon_msg "Starting system $DAEMON_NAME daemon"
+    start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON -- $DAEMON_OPTS
+    log_end_msg $?
+}
+do_stop () {
+    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
+    start-stop-daemon --stop --pidfile $PIDFILE --retry 20
+    log_end_msg $?
+}
+
+case "$1" in
+
+    start|stop)
+        do_${1}
+        ;;
+
+    restart)
+        do_stop
+        do_start
+        ;;
+
+    status)
+        status_of_proc "$DAEMON_NAME" "$DAEMON" && exit 0 || exit $?
+        ;;
+
+    *)
+        echo "Usage: /etc/init.d/$DAEMON_NAME {start|stop|restart|status}"
+        exit 1
+        ;;
+
+esac
+exit 0

@@ -1,0 +1,9 @@
+{
+    "donation_agents_activation": {
+        "minimaldemoagent": false,
+        "openhabagent": false,
+        "zwaveagent": false,
+        "netatmoagent": false,
+        "randomagent": false
+    }
+}

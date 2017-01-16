@@ -1,0 +1,8 @@
+{
+    "username": "",
+    "osn_api_endpoint": "opensense.network/api",
+    "max_queue_length": 80,
+    "max_sending_threads": 5,
+    "api_token": "",
+    "password": ""
+}

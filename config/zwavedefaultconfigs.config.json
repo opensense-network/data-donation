@@ -1,0 +1,87 @@
+{
+    "products": {
+        "0x0064": {
+            "product name": "MultiSensor 6", 
+            "72057594081706052": {
+                "note": "Enable Motion Sensor - we do not want motion to be reported by default. Change to Enabled if needed", 
+                "value": "Disabled", 
+                "parameter index": 4
+            }, 
+            "72057594081707603": {
+                "note": "Group 1 Reports - 241 means all available sensors to be reported and we do not use multiple groups by default", 
+                "value": 241, 
+                "parameter index": 101
+            }, 
+            "72057594081707763": {
+                "note": "Group 1 Interval (seconds) - the interval for measurement reports. Currently unclear what this actually does when below the wake-up-interval", 
+                "value": 5, 
+                "parameter index": 111
+            }, 
+            "72057594086227971": {
+                "note": "Wake-up Interval - this is reported in seconds but set in minutes. By default, we set it to 4 minutes, which is the minimum for this device", 
+                "value": 4, 
+                "parameter index": 0
+            }, 
+            "72057594081706628": {
+                "note": "Reporting Threshold - we also want report in case of changes and not only in fixed intervals", 
+                "value": "Enabled", 
+                "parameter index": 40
+            }, 
+            "72057594077528081": {
+                "note": "Alarm Level - not tampering alarms for our use-case, please", 
+                "value": 0, 
+                "parameter index": 1
+            }, 
+            "72057594081706646": {
+                "note": "Temperature Reporting Threshold (%) - we want these reports quite often", 
+                "value": 1, 
+                "parameter index": 41
+            }, 
+            "72057594081709201": {
+                "note": "Temperature Calibration - no calibration by default", 
+                "value": 0, 
+                "parameter index": 201
+            }, 
+            "72057594081706724": {
+                "note": "Low Temp Alarm - we are not interested in alarms", 
+                "value": "Disabled", 
+                "parameter index": 46
+            }, 
+            "72057594081706662": {
+                "note": "Humidity Reporting Threshold (%) - we want these reports quite often", 
+                "value": 5, 
+                "parameter index": 42
+            }, 
+            "72057594081709217": {
+                "note": "Humidity Calibration - no calibration by default", 
+                "value": 0, 
+                "parameter index": 202
+            }, 
+            "72057594081706678": {
+                "note": "Luminance Reporting Threshold (LUX) - these should not be too low, as it would report continuously at high levels, eg in summer, without significant proportional changes", 
+                "value": 100, 
+                "parameter index": 43
+            }, 
+            "72057594081709238": {
+                "note": "Luminance Calibration - no calibration by default", 
+                "value": 0, 
+                "parameter index": 203
+            }, 
+            "72057594081706705": {
+                "note": "UV Reporting Threshold - we want these reports quite often", 
+                "value": 1, 
+                "parameter index": 45
+            }, 
+            "72057594081709249": {
+                "note": "UV Calibration - no calibration by default", 
+                "value": 0, 
+                "parameter index": 204
+            }, 
+            "72057594081706694": {
+                "note": "Battery Reporting Threshold (%) - this is rather unimportant for us but should nonetheless be reported", 
+                "value": 5, 
+                "parameter index": 44
+            }
+        }
+    }
+}
