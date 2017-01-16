@@ -99,16 +99,6 @@ class OpenSenseNetInstance:
         self.logger.debug(self.configData)
         self.logger.debug("===== End OSN Config Data =================")
 
-        # set up some worker threads...
-        self.stopped = False
-        self.numFailedThreads = 0
-        self.numSucceededThreads = 0
-        self.logger.debug("creating %s sender threads" % self.configData["max_sending_threads"])
-        for i in range(self.configData["max_sending_threads"]):
-            worker = Thread(target = self.threadedApiCallPOST)
-            worker.daemon = True
-            worker.start()
-
         # Ok, we make a quick and very dirty hack here for caching DNS resolution,
         # which is otherwise not done / possible when using urllib. Especially for
         # agents sending many data, this can lead to dns errors
@@ -119,8 +109,15 @@ class OpenSenseNetInstance:
         self.dnsLastRefresh = time.time() # - ( 2 * self.dnsLookupInterval)
         socket.getaddrinfo = self.patchedGetAddrInfo
 
-        # read list of yet unsent messages into messageQueue, if any
-
+        # and now set up some worker threads...
+        self.stopped = False
+        self.numFailedThreads = 0
+        self.numSucceededThreads = 0
+        self.logger.debug("creating %s sender threads" % self.configData["max_sending_threads"])
+        for i in range(self.configData["max_sending_threads"]):
+            worker = Thread(target = self.threadedApiCallPOST)
+            worker.daemon = True
+            worker.start()
 
     def login(self):
         #jsonData = [{"username":self.configData["username"], "password":self.configData["password"]}]

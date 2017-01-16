@@ -12,7 +12,6 @@ sudo chown $USER $INSTALL_DIR
 echo "Cloning git from $GIT_URL ..."
 git clone $GIT_URL $INSTALL_DIR
 # this should in the future not be downloaded at all:
-sudo rm -rf $INSTALL_DIR/api_server
 echo "Installing Service..."
 sudo cp $INSTALL_DIR/tools/init.d-script/opensensenet-donation /etc/init.d
 sudo chmod 755 /etc/init.d/opensensenet-donation
