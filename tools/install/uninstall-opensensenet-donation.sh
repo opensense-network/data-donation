@@ -1,7 +1,7 @@
 #! /bin/sh
 
 INSTALL_DIR=/opt/opensensenet
-GIT_URL="https://github.com/fpallas/opensensenet.git"
+GIT_URL="https://github.com/opensense-network/data-donation.git"
 
 echo "Uninstalling Opensensenet Donation Environment from $INSTALL_DIR..."
 echo "Stopping Service..."

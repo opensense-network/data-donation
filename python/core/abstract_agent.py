@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 
-This file is part of **opensense** project https://github.com/fpallas/opensensenet.
+This file is part of **opensense** project https://github.com/opensense-network/.
     :platform: Unix, Windows, MacOS X
     :sinopsis: opensense
 
-.. moduleauthor:: Frank Pallas <frank.pallasłtu-berlin.de>
+.. moduleauthor:: Frank Pallas <frank.pallas@tu-berlin.de>
 
 License : GPL(v3)
 

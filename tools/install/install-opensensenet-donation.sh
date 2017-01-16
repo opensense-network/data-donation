@@ -1,7 +1,7 @@
 #! /bin/sh
 
 INSTALL_DIR=/opt/opensensenet
-GIT_URL="https://github.com/fpallas/opensensenet.git"
+GIT_URL="https://github.com/opensense-network/data-donation.git"
 LOG_FILE=$INSTALL_DIR/data_donation/log/opensensenet-donation.log
 CONFIG_FILE=$INSTALL_DIR/data_donation/config/opensensenet-donation.config.json
 

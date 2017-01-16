@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 
-This file is part of **opensense** project https://github.com/fpallas/opensensenet.
+This file is part of **opensense** project https://github.com/opensense-network/.
     :platform: Unix, Windows, MacOS X
     :sinopsis: opensense
 
-.. moduleauthor:: Frank Pallas <frank.pallasłtu-berlin.de>
+.. moduleauthor:: Frank Pallas <frank.pallas@tu-berlin.de>
 
 License : GPL(v3)
 
@@ -28,20 +28,20 @@ from ...core.abstract_agent import *
 
 class MinimalDemoAgent(AbstractAgent):
     """
-    A minimal donation agent for demonstrating how to implement additional agents. 
-    
+    A minimal donation agent for demonstrating how to implement additional agents.
+
     This class may serve as starting point for many further agents to come.
     """
-    
+
     def __init__(self, configDir, osnInstance):
         AbstractAgent.__init__(self, configDir, osnInstance)
 
     def run(self):
         self.isRunning = True
-        self.sendValue(2, 23.42)
-        
+        self.sendValue(1, 23.42)
+
     def discoverSensors(self):
-        self.addDefaultSensor(1, "temp", "Celsius")
+        self.addDefaultSensor(1, "temperature", "Celsius")
         self.serializeConfig()
 
     def stop(self):

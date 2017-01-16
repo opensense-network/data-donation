@@ -1,16 +1,34 @@
 #!/usr/bin/env python
+
+"""
+
+This file is part of **opensense** project https://github.com/opensense-network/.
+    :platform: Unix, Windows, MacOS X
+    :sinopsis: opensense
+
+.. moduleauthor:: Frank Pallas <frank.pallas@tu-berlin.de>
+
+License : GPL(v3)
+
+**opensense** is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+**opensense** is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with opensense. If not, see http://www.gnu.org/licenses.
+
+"""
 import os, sys, time, logging, glob, signal
 import threading
 import json
 import importlib
 
 from python.core.opensense import OpenSenseNetInstance
-
-#from python.agents.zwave_agent import ZWaveAgent
-#from python.agents.minimal_demo_agent import MinimalDemoAgent
-#from python.agents.random_agent import RandomAgent
-#from python.agents.openhab_agent import OpenHABAgent
-#from python.agents import * # maybe check for dynamic list of imported agents?
 
 class TerminationSignalHandler:
     exitNow = False
@@ -24,13 +42,13 @@ class TerminationSignalHandler:
 sigHandler = TerminationSignalHandler()
 rootDir = os.path.dirname(sys.argv[0])
 configDir = os.path.join(rootDir, "config")
+
 #logLevel = logging.DEBUG
 logLevel = logging.INFO
 #logLevel = logging.WARNING
+
 logFile = os.path.join(rootDir, "log", "opensensenet-donation.log")
-#logging.basicConfig(filename=logFile, level=logging.DEBUG, format='%(asctime)s - %(name)s - %(message)s')
 logging.basicConfig(filename=logFile, level=logLevel, format='%(asctime)s - %(name)s - %(message)s')
-#logging.basicConfig(filename=logFile, level=logging.DEBUG)
 logger = logging.getLogger("donationAgentRunner")
 
 osnInstance = OpenSenseNetInstance(rootDir)

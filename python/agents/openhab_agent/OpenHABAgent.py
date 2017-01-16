@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 
-This file is part of **opensense** project https://github.com/fpallas/opensensenet.
+This file is part of **opensense** project https://github.com/opensense-network/.
     :platform: Unix, Windows, MacOS X
     :sinopsis: opensense
 
-.. moduleauthor:: Frank Pallas <frank.pallasłtu-berlin.de>
+.. moduleauthor:: Frank Pallas <frank.pallas@tu-berlin.de>
 
 License : GPL(v3)
 
@@ -35,9 +35,9 @@ except ImportError:
 
 class OpenHABAgent(AbstractAgent):
     """
-    A donation agent collecting Data from an existing OpenHAB (http://openhab.org) installation. 
+    A donation agent collecting Data from an existing OpenHAB (http://openhab.org) installation.
     """
-    
+
     def __init__(self, configDir, osnInstance):
         AbstractAgent.__init__(self, configDir, osnInstance)
         self.curSensorValues = {}
@@ -53,17 +53,17 @@ class OpenHABAgent(AbstractAgent):
 
     def run(self):
         # Todo: maybe some smarter way off connecting to OpenHAB than polling every x msec...
-        self.logger.debug("OpenHAB agent started. Update interval is %s." % self.configData["update_interval_msec"])
+        self.logger.info("OpenHAB agent started. Update interval is %s." % self.configData["update_interval_msec"])
         self.isRunning = True
         self.updateValues()
         self.scheduler.run()
-        
+
     def updateValues(self):
         #self.logger.debug("updating OpenHab values...")
         items = self.getJsonFromOpenHAB()
         if items != False:
             for item in items:
-                # checking for sensorActive is actually redundant here as sendValue already performs 
+                # checking for sensorActive is actually redundant here as sendValue already performs
                 # this test. However, we include it here for safety reasons and to prevent log-flooding
                 if "name" in item and "state" in item and self.sensorActive(item["name"]):
                     value = item["state"]
@@ -73,13 +73,13 @@ class OpenHABAgent(AbstractAgent):
                         #self.logger.debug("Item %s is at %s - sending value" % (item["name"], value))
                         self.sendValue(name, value)
                         self.curSensorValues[name] = value
-        # and now create the next update cycle. Probably, we'll do this later on a per-item basis, 
+        # and now create the next update cycle. Probably, we'll do this later on a per-item basis,
         # but for the moment, it seems ok to simply do it this way
         if self.isRunning:
             delay = self.configData["update_interval_msec"]
             self.scheduler.enter(delay/1000, 1, self.updateValues, argument=())
-   
-        
+
+
     def discoverSensors(self):
         itemTypesToRecognize = {"NumberItem", "ContactItem"} # we dont't want to be flooded with switch- or group items
         configChanged = False
@@ -95,7 +95,7 @@ class OpenHABAgent(AbstractAgent):
         if "openhab_password" not in self.configData:
             self.configData["openhab_password"]=""
             configChanged = True
-        
+
         availableItems = self.getJsonFromOpenHAB()
         if availableItems != False:
             for item in availableItems:
@@ -103,10 +103,10 @@ class OpenHABAgent(AbstractAgent):
                     if ((item["type"] in itemTypesToRecognize) and (not self.sensorConfigured(item["name"]))):
                         self.addDefaultSensor(item["name"], "", "")
                         configChanged = True
-                
+
         if configChanged:
             self.serializeConfig()
-            
+
     def getJsonFromOpenHAB(self):
         retVal = False
         restEndpoint = self.configData["openhab_instance"] + "/rest/items/"
@@ -118,16 +118,16 @@ class OpenHABAgent(AbstractAgent):
             handle = request.urlopen(req) # timeout of 10 secs should be ok
             response = handle.read().decode()
             #self.logger.debug("sent value. json: %s response: %s" % (self.jsonData, response))
-            #self.logger.debug("Success.")  
+            #self.logger.debug("Success.")
         except BaseException as e:
-            self.logger.debug("Could not fetch data from OpenHAB. Configuration correct? Exception message: %s" % e)
+            self.logger.info("Could not fetch data from OpenHAB. Configuration correct? Exception message: %s" % e)
         try:
             availableItems = json.loads(response)["item"]
             retVal = availableItems
         except BaseException as e:
-            self.logger.debug("Could not parse JSON from Openhab response. Exception message: %s" % e)
+            self.logger.warning("Could not parse JSON from Openhab response. Exception message: %s" % e)
         return retVal
-        
+
     def stop(self):
         for pendingEvent in self.scheduler.queue:
             self.scheduler.cancel(pendingEvent) # could be that this does not work as the queue does not return events....

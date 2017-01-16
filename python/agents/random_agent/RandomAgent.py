@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 
-This file is part of **opensense** project https://github.com/fpallas/opensensenet.
+This file is part of **opensense** project https://github.com/opensense-network/.
     :platform: Unix, Windows, MacOS X
     :sinopsis: opensense
 
-.. moduleauthor:: Frank Pallas <frank.pallasłtu-berlin.de>
+.. moduleauthor:: Frank Pallas <frank.pallas@tu-berlin.de>
 
 License : GPL(v3)
 
@@ -28,12 +28,12 @@ from ...core.abstract_agent import *
 
 class RandomAgent(AbstractAgent):
     """A simple agent producing randomized data for testing purposes."""
-    
+
     def __init__(self, configDir, osnInstance):
         AbstractAgent.__init__(self, configDir, osnInstance)
         self.curSensorValues = []
         self.scheduler = sched.scheduler(time.time, time.sleep)
-        
+
     def discoverSensors(self):
         self.logger.info("Generating default sensors for random agent")
         configChanged = False
@@ -48,10 +48,10 @@ class RandomAgent(AbstractAgent):
         if (configChanged):
             self.serializeConfig()
             self.logger.info("Generated default sensors.")
-        
+
 
     def generateNextRandomValue(self, sensorIndex):
-        #self.logger.debug("timer invoked for sensor %s" % sensorIndex)
+        self.logger.debug("timer invoked for sensor %s" % sensorIndex)
         sensor = self.configData["sensor_mappings"][sensorIndex]
         targetValue = self.curSensorValues[sensorIndex]
         valueVolatility = sensor["value_volatility"]
@@ -72,8 +72,8 @@ class RandomAgent(AbstractAgent):
         #self.logger.debug("creating new timer for sensor %s to be updated in %s msecs" %(sensorIndex, randomDelay))
         if self.isRunning:
             self.scheduler.enter(randomDelay/1000, 1, self.generateNextRandomValue, argument=(sensorIndex,))
-        
-        
+
+
     def run(self):
         #create timers for each existing sensor
         self.logger.info("RandomAgent started.")
@@ -85,8 +85,8 @@ class RandomAgent(AbstractAgent):
             if randomDelay < 0:
                 randomDelay = 0
             self.logger.debug("creating timer for sensor %s to be updated in %s msecs" %(index, randomDelay))
-            self.scheduler.enter(randomDelay/1000, 1, self.generateNextRandomValue, argument=(index,)) 
-            index = index + 1 
+            self.scheduler.enter(randomDelay/1000, 1, self.generateNextRandomValue, argument=(index,))
+            index = index + 1
         self.isRunning = True
         self.scheduler.run()
 

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 
-This file is part of **opensense** project https://github.com/fpallas/opensensenet.
+This file is part of **opensense** project https://github.com/opensense-network/.
     :platform: Unix, Windows, MacOS X
     :sinopsis: opensense
 
-.. moduleauthor:: Frank Pallas <frank.pallasłtu-berlin.de>
+.. moduleauthor:: Frank Pallas <frank.pallas@tu-berlin.de>
 
 License : GPL(v3)
 
@@ -41,26 +41,26 @@ from os.path import expanduser, isfile
 from ...core.abstract_agent import *
 
 class ZWaveAgent(AbstractAgent):
-    """A Zwave Agent for directly collecting data from a ZWave network. Requires openzwave to be 
+    """A Zwave Agent for directly collecting data from a ZWave network. Requires openzwave to be
     installed (see tools folder) and ZWave Stick to be plugged in"""
-    
+
     def __init__(self, configDir, osnInstance):
         AbstractAgent.__init__(self, configDir, osnInstance)
-        
+
         log="Info" # should be read from config later
-        
+
         configChanged = False
         if "zwave_device" not in self.configData:
             self.configData["zwave_device"] = "/dev/ttyACM0"
             configChanged = True
         if configChanged:
             self.serializeConfig()
-            
+
         # handle zwave default device configurations
         self.zwaveDefaultConfigs = {}
         self.zwaveDefaultConfigFile = os.path.join(self.configDir, "zwavedefaultconfigs.config.json")
         self.readZwaveDefaultConfigs()
-        
+
         self.device = self.configData["zwave_device"]
         self.logger.debug("Initiating ZWaveAgent with device %s." % self.device)
         self.zwaveOptions = ""
@@ -68,13 +68,11 @@ class ZWaveAgent(AbstractAgent):
             self.zwaveOptions = ZWaveOption(self.device.encode('ascii'), \
             config_path=expanduser("~")+"/ozw-install/python-open-zwave/openzwave/config", \
             user_path=self.configDir, cmd_line="")
-            #self.zwaveOptions.set_log_file(os.path.join(self.configDir, "..", "log", "openzwave.log"))
             self.zwaveOptions.set_log_file("../log/openzwave.log") # Todo: don't hardcode openzwave-path
             self.zwaveOptions.set_append_log_file(False)
             self.zwaveOptions.set_console_output(False)
             self.zwaveOptions.set_save_log_level(log)
             self.zwaveOptions.set_logging(False)
-            #self.zwaveOptions.set_logging(False)
             self.zwaveOptions.lock()
         except BaseException as e:
             self.logger.info("Error setting up ZWave network. Correct device? Device properly connected? Device is: %s Exception message: %s" % (self.device, e))
@@ -96,7 +94,7 @@ class ZWaveAgent(AbstractAgent):
         self.logger.info("===========")
         configChanged = False
         for node in network.nodes:
-            self.logger.info("Node %s: %s (battery: %s)" % (node, network.nodes[node].product_name, network.nodes[node].get_battery_level()))        
+            self.logger.info("Node %s: %s (battery: %s)" % (node, network.nodes[node].product_name, network.nodes[node].get_battery_level()))
             self.logger.info("Available Command Classes: %s" % network.nodes[node].command_classes)
             modelString = network.nodes[node].manufacturer_name + " " + network.nodes[node].product_name
             if node != self.network.controller.node_id: # not for controller node
@@ -107,24 +105,24 @@ class ZWaveAgent(AbstractAgent):
                     # we are in discovery mode and sensor is not configured yet, add default
                     self.addDefaultSensor(sensor, network.nodes[node].get_sensors()[sensor].label, network.nodes[node].get_sensors()[sensor].units, {"sensorModel":modelString})
                     configChanged = True
-                #self.logger.info ("Sensor %s has %s of %s (Unit: %s)" % (sensor, network.nodes[node].get_sensors()[sensor].label, \
-                #                                              network.nodes[node].get_sensor_value(sensor), network.nodes[node].get_sensors()[sensor].units))
+                self.logger.debug("Sensor %s has %s of %s (Unit: %s)" % (sensor, network.nodes[node].get_sensors()[sensor].label, \
+                                                              network.nodes[node].get_sensor_value(sensor), network.nodes[node].get_sensors()[sensor].units))
         if self.inDiscoveryMode:
-            # as discovery is more complicated for Zwave, we have to do it this way. 
+            # as discovery is more complicated for Zwave, we have to do it this way.
             # in discovery Mode, the config including new default configurations is serialized, then the agent Is stopped.
             if configChanged:
                 # serialize for having all new sensors in config
                 self.serializeConfig()
             self.isRunning = False # this ensures that runner stops this agent after discovery is completed
-        else:    
+        else:
             dispatcher.connect(self.nodeUpdate, ZWaveNetwork.SIGNAL_NODE)
             dispatcher.connect(self.valueUpdate, ZWaveNetwork.SIGNAL_VALUE)
 
     def nodeUpdate(self, network, node):
         # maybe do something valuable here later...
-        # self.logger.info('Received node update from node : %s.' % node)
+        self.logger.debug('Received node update from node : %s.' % node)
         pass
-        
+
     def valueUpdate(self, network, node, value):
         # not sure whether this might produce redundancies in case of one value_id appearing for multiple nodes...
         # nonetheless, staying with this for the moment
@@ -158,14 +156,14 @@ class ZWaveAgent(AbstractAgent):
                 newConfig[param.value_id]["value"] = param.data
             self.zwaveDefaultConfigs["products"][productId] = newConfig
             self.serializeZwaveDefaultConfigs()
-    
+
     def getDefaultDeviceConfiguration(self, productId):
         self.logger.debug("getting zwave default configs for product id %s" % productId)
         if self.zwaveDefaultConfigs["products"].has_key(productId):
             return self.zwaveDefaultConfigs["products"][productId]
         else:
             return {}
-        
+
     def readZwaveDefaultConfigs(self):
         self.logger.debug("reading zwave default device configs from %s" % self.zwaveDefaultConfigFile)
         configChanged = False
@@ -177,13 +175,13 @@ class ZWaveAgent(AbstractAgent):
             configChanged = True
         if (configChanged):
             self.serializeZwaveDefaultConfigs()
-            
+
     def serializeZwaveDefaultConfigs(self):
         with open(self.zwaveDefaultConfigFile, "w") as configFileHandle:
             self.logger.info("Serializing zwave default device configs to %s." % self.zwaveDefaultConfigFile)
             json.dump(self.zwaveDefaultConfigs, configFileHandle, sort_keys = False, indent = 4, ensure_ascii=False)
             # data_file.close
-        
+
     def run(self):
         self.isRunning = True
         #Create a network object
@@ -193,7 +191,7 @@ class ZWaveAgent(AbstractAgent):
         dispatcher.connect(self.networkFailed, ZWaveNetwork.SIGNAL_NETWORK_FAILED)
         dispatcher.connect(self.networkReady, ZWaveNetwork.SIGNAL_NETWORK_READY)
         self.network.start()
-        
+
     def discoverSensors(self):
         self.inDiscoveryMode = True
         # In this case, stuff is slightly more complicated as we have to manage the zwave network, too.
