@@ -38,6 +38,11 @@ do_stop () {
     start-stop-daemon --stop --pidfile $PIDFILE --retry 20
     log_end_msg $?
 }
+do_discover () {
+    log_daemon_msg "Starting system $DAEMON_NAME daemon"
+    start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON -- $DAEMON_OPTS "--discover"
+    log_end_msg $?
+}
 
 case "$1" in
 
@@ -48,6 +53,11 @@ case "$1" in
     restart)
         do_stop
         do_start
+        ;;
+
+    discover)
+        do_stop
+        do_discover
         ;;
 
     status)
