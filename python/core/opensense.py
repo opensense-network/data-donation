@@ -201,7 +201,7 @@ class OpenSenseNetInstance:
         self.logger.debug("sending value <%s> for remote sensor id %s..." % (value, remoteSensorId))
         if self.queueLength() > self.configData["max_queue_length"]:
             targetLength = (self.configData["max_queue_length"] * 2 / 3)
-            self.logger.info("Queue has more than %s entries - sleeping till below %s..." % (self.configData["max_queue_length"], targetLength))
+            self.logger.debug("Queue has more than %s entries - sleeping till below %s..." % (self.configData["max_queue_length"], targetLength))
             while self.queueLength() > targetLength:
                 time.sleep(0.1)
 
@@ -374,7 +374,7 @@ class OpenSenseNetInstance:
                 if handle is not None:
                     handle.close()
                 self.threadedSendingQueue.put(messageObject)
-                self.logger.info("Couldn't perform threaded api POST call to %s. Exception message: %s. Putting message back in queue. Num succeeded / failed threads: %s / %s" % (callURI, e, self.numSucceededThreads, self.numFailedThreads))
+                self.logger.debug("Couldn't perform threaded api POST call to %s. Exception message: %s. Putting message back in queue. Num succeeded / failed threads: %s / %s" % (callURI, e, self.numSucceededThreads, self.numFailedThreads))
                 self.notifyPostThreadFailed()
             self.logger.debug("Num succeeded / failed threads: %s / %s" % (self.numSucceededThreads, self.numFailedThreads))
             self.threadedSendingQueue.task_done()
