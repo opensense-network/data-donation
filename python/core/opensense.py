@@ -113,6 +113,8 @@ class OpenSenseNetInstance:
         self.stopped = False
         self.numFailedThreads = 0
         self.numSucceededThreads = 0
+        self.logger.info("logging in...")
+        self.login()
         self.logger.debug("creating %s sender threads" % self.configData["max_sending_threads"])
         for i in range(self.configData["max_sending_threads"]):
             worker = Thread(target = self.threadedApiCallPOST)

@@ -101,9 +101,6 @@ for agent in availableAgents:
         except BaseException as e:
             logger.warning("Could not import and instantiate Agent %s. Exception message: %s" % (agent, e))
 
-logger.debug("logging in")
-osnInstance.login()
-
 logger.debug("Starting all activated agents")
 for agent in activeAgents:
     if "--discover" in sys.argv:
