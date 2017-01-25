@@ -178,7 +178,7 @@ class AbstractAgent(Thread):
             params = {"local_id":localSensorId,"remote_id":"", "measurand":measurandString,"unit":unitString}
             params.update(additional_params)
             self.configData["sensor_mappings"].append(params)
-            self.logger.info("New default sensor added for local ID %s" % localSensorId)
+            self.logger.info("New default sensor (%s, %s) added for local ID %s. Additional params: %s" % (measurandString, unitString, localSensorId, additional_params))
 
     def run(self):
         # this is the place for putting additional code that shall not run directly
