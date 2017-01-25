@@ -163,7 +163,7 @@ class OpenSenseNetInstance:
 
         if "id" in apiResponse:
             retVal = apiResponse["id"]
-            self.logger.debug("Created sensor on platform. ID: %s" % retVal)
+            self.logger.info("Created sensor on platform with ID %s. Additional params: %s" % (retVal, params))
         return retVal
 
 
