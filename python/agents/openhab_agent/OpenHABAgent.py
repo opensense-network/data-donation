@@ -46,6 +46,15 @@ class OpenHABAgent(AbstractAgent):
         if "update_interval_msec" not in self.configData:
             self.configData["update_interval_msec"]=5000
             configChanged = True
+        if "openhab_instance" not in self.configData:
+            self.configData["openhab_instance"]="http://localhost:8080"
+            configChanged = True
+        if "openhab_username" not in self.configData:
+            self.configData["openhab_username"]=""
+            configChanged = True
+        if "openhab_password" not in self.configData:
+            self.configData["openhab_password"]=""
+            configChanged = True
         if configChanged:
             self.serializeConfig()
 
@@ -81,26 +90,16 @@ class OpenHABAgent(AbstractAgent):
 
 
     def discoverSensors(self):
-        itemTypesToRecognize = {"NumberItem", "ContactItem"} # we dont't want to be flooded with switch- or group items
+        itemTypesToRecognize = {"Number", "Contact"} # we dont't want to be flooded with switch- or group items
         configChanged = False
-        if "openhab_instance" not in self.configData:
-            self.configData["openhab_instance"]="http://localhost:8080"
-            configChanged = True
-        if "update_interval_msec" not in self.configData:
-            self.configData["update_interval_msec"]=5000
-            configChanged = True
-        if "openhab_username" not in self.configData:
-            self.configData["openhab_username"]=""
-            configChanged = True
-        if "openhab_password" not in self.configData:
-            self.configData["openhab_password"]=""
-            configChanged = True
 
         availableItems = self.getJsonFromOpenHAB()
         if availableItems != False:
             for item in availableItems:
                 if "name" in item and "type" in item:
+                    #self.logger.info("Name: %s, Type: %s" % (item["name"], item["type"]))
                     if ((item["type"] in itemTypesToRecognize) and (not self.sensorConfigured(item["name"]))):
+                        self.logger.info("JSON item: %s" % item)
                         self.addDefaultSensor(item["name"], "", "")
                         configChanged = True
 
@@ -117,12 +116,14 @@ class OpenHABAgent(AbstractAgent):
         try:
             handle = request.urlopen(req) # timeout of 10 secs should be ok
             response = handle.read().decode("utf-8")
+            #self.logger.info("JSON response: %s" % response)
             #self.logger.debug("sent value. json: %s response: %s" % (self.jsonData, response))
             #self.logger.debug("Success.")
         except BaseException as e:
             self.logger.info("Could not fetch data from OpenHAB. Configuration correct? Exception message: %s" % e)
         try:
-            availableItems = json.loads(response)["item"]
+            availableItems = json.loads(response)
+            #self.logger.info("JSON content: %s" % availableItems)
             retVal = availableItems
         except BaseException as e:
             self.logger.warning("Could not parse JSON from Openhab response. Exception message: %s" % e)
