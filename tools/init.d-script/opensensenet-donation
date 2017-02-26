@@ -19,7 +19,7 @@ DIR=/opt/opensensenet/ # To be corrected later
 DAEMON=$DIR/donation_agent_runner.py
 DAEMON_OPTS=""
 DAEMON_NAME="opensensenet_donation"
-DAEMON_USER="root"
+DAEMON_USER="opensense"
 PIDFILE=/var/run/$DAEMON_NAME.pid
 
 # Exit if opensensenet-donation not present

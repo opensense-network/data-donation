@@ -1,7 +1,7 @@
 #! /bin/sh
 
 INSTALL_DIR=/opt/opensensenet
-GIT_URL="https://github.com/opensense-network/data-donation.git"
+USER=opensense
 
 echo "Uninstalling Opensensenet Donation Environment from $INSTALL_DIR..."
 echo "Stopping Service..."
@@ -11,4 +11,7 @@ sudo update-rc.d -f opensensenet-donation remove
 sudo rm /etc/init.d/opensensenet-donation
 echo "Removing $INSTALL_DIR"
 sudo rm -rf $INSTALL_DIR
+echo "Removing user and group"
+sudo deluser $USER
+sudo delgroup $USER
 echo "Done."

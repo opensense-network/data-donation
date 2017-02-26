@@ -4,15 +4,18 @@ INSTALL_DIR=/opt/opensensenet
 GIT_URL="https://github.com/opensense-network/data-donation.git"
 LOG_FILE=$INSTALL_DIR/log/opensensenet-donation.log
 CONFIG_FILE=$INSTALL_DIR/config/opensensenet-donation.config.json
+USER=opensense
+
 
 echo "Installing git"
 sudo apt-get install -y git
+sudo adduser --system --no-create-home --group --disable-password --disabled-login $USER
 echo "Installing Opensensenet Donation Environment to $INSTALL_DIR..."
 sudo mkdir $INSTALL_DIR
-sudo chown $USER $INSTALL_DIR
+sudo chown $USER:$USER $INSTALL_DIR
 #cd $INSTALL_DIR
 echo "Cloning git from $GIT_URL ..."
-git clone $GIT_URL $INSTALL_DIR
+sudo -u $USER git clone $GIT_URL $INSTALL_DIR
 # this should in the future not be downloaded at all:
 echo "Installing Service..."
 sudo cp $INSTALL_DIR/tools/init.d-script/opensensenet-donation /etc/init.d
