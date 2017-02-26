@@ -68,7 +68,7 @@ class OpenHABAgent(AbstractAgent):
         self.scheduler.run()
 
     def updateValues(self):
-        self.logger.info("updating OpenHab values...")
+        #self.logger.debug("updating OpenHab values...")
         items = self.getJsonFromOpenHAB()
         if items != False:
             for item in items:
