@@ -116,7 +116,7 @@ class OpenHABAgent(AbstractAgent):
         response = ""
         try:
             handle = request.urlopen(req) # timeout of 10 secs should be ok
-            response = handle.read().decode()
+            response = handle.read().decode("utf-8")
             #self.logger.debug("sent value. json: %s response: %s" % (self.jsonData, response))
             #self.logger.debug("Success.")
         except BaseException as e:
