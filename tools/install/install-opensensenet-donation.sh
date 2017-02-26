@@ -9,7 +9,7 @@ USER=opensense
 
 echo "Installing git"
 sudo apt-get install -y git
-sudo adduser --system --no-create-home --group --disable-password --disabled-login $USER
+sudo adduser --system --no-create-home --group --disabled-password --disabled-login $USER
 echo "Installing Opensensenet Donation Environment to $INSTALL_DIR..."
 sudo mkdir $INSTALL_DIR
 sudo chown $USER:$USER $INSTALL_DIR
