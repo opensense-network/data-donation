@@ -77,11 +77,10 @@ class OpenHABAgent(AbstractAgent):
                 if "name" in item and "state" in item and self.sensorActive(item["name"]):
                     value = item["state"]
                     name = item["name"]
-                    utcTime = datetime.datetime.utcnow()
                     # send only if nor previous value there or if value change
                     if (name not in self.curSensorValues) or (self.curSensorValues[name] != value):
                         #self.logger.debug("Item %s is at %s - sending value" % (item["name"], value))
-                        self.sendValue(name, value, utcTime)
+                        self.sendValue(name, value)
                         self.curSensorValues[name] = value
         # and now create the next update cycle. Probably, we'll do this later on a per-item basis,
         # but for the moment, it seems ok to simply do it this way
