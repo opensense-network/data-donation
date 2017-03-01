@@ -196,11 +196,13 @@ class OpenSenseNetInstance:
             self.logger.debug("got the measurand id for %s: %s" % (measurandString, retVal))
         return retVal
 
-    def sendValue (self, remoteSensorId, value, utcTime = datetime.datetime.utcnow()):
+    def sendValue (self, remoteSensorId, value, utcTime = None):
         """
         Sends a value for the given remoteSensorId to the platform. Currently, value muste be a number. Values are sent using multiple sender threads.
         """
         self.logger.debug("sending value <%s> for remote sensor id %s..." % (value, remoteSensorId))
+        if utcTime == None:
+            utcTime = datetime.datetime.utcnow()
         if self.queueLength() > self.configData["max_queue_length"]:
             targetLength = (self.configData["max_queue_length"] * 2 / 3)
             self.logger.debug("Queue has more than %s entries - sleeping till below %s..." % (self.configData["max_queue_length"], targetLength))

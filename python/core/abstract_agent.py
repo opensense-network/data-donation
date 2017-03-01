@@ -111,7 +111,7 @@ class AbstractAgent(Thread):
             json.dump(self.configData, configFileHandle, sort_keys = False, indent = 4, ensure_ascii=False)
             # data_file.close
 
-    def sendValue (self, localSensorId, value, utcTime = datetime.datetime.utcnow()):
+    def sendValue (self, localSensorId, value, utcTime = None):
         """
         This method is used for sending values to OpenSenseNet. Is is easily
         used with local IDs for sensors and automatically performs the
@@ -119,7 +119,8 @@ class AbstractAgent(Thread):
         a certain sensor is to be sent at all based on the agent-specific
         configuration-file.
         """
-
+        if utcTime == None:
+            utcTime = datetime.datetime.utcnow()
         if (self.sensorConfigured(localSensorId) and self.remoteSensorIdFromLocalId(localSensorId) != ""):
             remoteId = self.remoteSensorIdFromLocalId(localSensorId)
             self.osnInstance.sendValue(remoteId, value, utcTime)
