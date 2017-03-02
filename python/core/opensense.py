@@ -132,7 +132,7 @@ class OpenSenseNetInstance:
             self.serializeConfig()
             self.logger.debug("logged in, token is: %s", apiToken)
 
-    def createRemoteSensor (self, measurandString, unitString, additional_params = {}):
+    def createRemoteSensor (self, measurandString, unitString, additional_params = None):
         """
         Creates a new sensor on the opensense platform and returns ID if successful, None if not.
 
@@ -142,7 +142,8 @@ class OpenSenseNetInstance:
         these strings are mapped (mapping happens after converting everything to lower-case).
         Currently, however, this list and the respective mapping functionality is very limited.
         """
-
+        if additional_params == None:
+            additional_params = {}
         retVal = None
         self.logger.debug("creating new sensor on platform with measurand %s and unit %s..." % (measurandString, unitString))
         measurandId = self.getMeasurandId(measurandString.lower())
