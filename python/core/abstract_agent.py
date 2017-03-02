@@ -170,7 +170,9 @@ class AbstractAgent(Thread):
             retVal = True
         return retVal
 
-    def addDefaultSensor (self, localSensorId, measurandString, unitString, additional_params = {}):
+    def addDefaultSensor (self, localSensorId, measurandString, unitString, additional_params = None):
+        if additional_params == None:
+            additional_params = {}
         if (self.sensorConfigured(localSensorId)):
             self.logger.warning("Sensor %s already configured. Can't add." % localSensorId)
         else:
