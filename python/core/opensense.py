@@ -80,6 +80,12 @@ class OpenSenseNetInstance:
             if "max_queue_length" not in self.configData:
                 self.configData["max_queue_length"]=150 # default settings for less load-heavy scenarios. Increase as appropriate
                 config_changed = True
+            if "encrypt_traffic" not in self.configData:
+                self.configData["encrypt_traffic"]=True # default settings for less load-heavy scenarios. Increase as appropriate
+                config_changed = True
+            if "validate_certificate" not in self.configData:
+                self.configData["validate_certificate"]=True # default settings for less load-heavy scenarios. Increase as appropriate
+                config_changed = True
             if "unsentMessages" in self.configData:
                 unsentMessages = self.configData["unsentMessages"]
                 msgCount = 0
@@ -244,16 +250,20 @@ class OpenSenseNetInstance:
             # SSLContext was only introduced with python 2.7.9
             self.logger.critical("WARNING! Secure communication not properly supported in this python version (%s.%s.%s). Please use python version 2.7.9 or higher!" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
         else:
-            sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-            #self.logger.critical("WARNING! SSL certificates are currently not verfied!")
-            sslContext.set_default_verify_paths()
-            sslContext.verify_mode = ssl.CERT_REQUIRED
+            if self.configData["encrypt_traffic"]:
+                sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+                if self.configData["validate_certificate"]:
+                    sslContext.set_default_verify_paths()
+                    sslContext.verify_mode = ssl.CERT_REQUIRED
+                else:
+                    self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
+            else:
+                    self.logger.critical("WARNING! SSL turned off, connection is insecure.")
 
         try:
             if sslContext:
                 handle = request.urlopen(req, timeout=10, context=sslContext)
             else:
-                self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
                 handle = request.urlopen(req, timeout=10)
             response = handle.read().decode('utf-8')
             handle.close()
@@ -295,17 +305,21 @@ class OpenSenseNetInstance:
             # SSLContext was only introduced with python 2.7.9
             self.logger.critical("WARNING! Secure communication not properly supported in this python version (%s.%s.%s). Please use python version 2.7.9 or higher!" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
         else:
-            sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-            #self.logger.critical("WARNING! SSL certificates are currently not verfied!")
-            sslContext.set_default_verify_paths()
-            sslContext.verify_mode = ssl.CERT_REQUIRED
+            if self.configData["encrypt_traffic"]:
+                sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+                if self.configData["validate_certificate"]:
+                    sslContext.set_default_verify_paths()
+                    sslContext.verify_mode = ssl.CERT_REQUIRED
+                else:
+                    self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
+            else:
+                    self.logger.critical("WARNING! SSL turned off, connection is insecure.")
 
         try:
             response = None
             if sslContext:
                 handle = request.urlopen(req, timeout=10, context=sslContext)
             else:
-                self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
                 handle = request.urlopen(req, timeout=10)
             response = handle.read().decode('utf-8')
             handle.close()
@@ -341,10 +355,15 @@ class OpenSenseNetInstance:
             # SSLContext was only introduced with python 2.7.9
             self.logger.critical("WARNING! Secure communication not properly supported in this python version (%s.%s.%s). Please use python version 2.7.9 or higher!" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
         else:
-            sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-            #self.logger.critical("WARNING! SSL certificates are currently not verfied!")
-            sslContext.set_default_verify_paths()
-            sslContext.verify_mode = ssl.CERT_REQUIRED
+            if self.configData["encrypt_traffic"]:
+                sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+                if self.configData["validate_certificate"]:
+                    sslContext.set_default_verify_paths()
+                    sslContext.verify_mode = ssl.CERT_REQUIRED
+                else:
+                    self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
+            else:
+                    self.logger.critical("WARNING! SSL turned off, connection is insecure.")
 
         while True:
             if self.stopped:
@@ -369,7 +388,6 @@ class OpenSenseNetInstance:
                     handle = request.urlopen(req, timeout=20, context=sslContext)
                     response = handle.read() # we're not interested in this response, but reading might be necessary for the connection to close on some operating systems...
                 else:
-                    self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
                     handle = request.urlopen(req, timeout=20)
                     response = handle.read() # we're not interested in this response, but reading might be necessary for the connection to close on some operating systems...
                 handle.close()
