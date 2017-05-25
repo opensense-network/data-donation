@@ -219,7 +219,12 @@ class OpenSenseNetInstance:
         timestampstring = utcTime.strftime("%Y-%m-%dT%H:%M:%S.") + ("%sZ" % (utcTime.microsecond//1000))
         # note: we always assume a number value here - string values are not supported by API yet but might be added somewhen later
         jsonData = {"numberValue":value, "timestamp":timestampstring, "sensorId":remoteSensorId}
-        valuePostURI = "https://" + self.configData["osn_api_endpoint"] + "/sensors/addValue"
+        valuePostURI = ""
+        if self.configData["encrypt_traffic"]:
+            valuePostURI = "https://"
+        else:
+            valuePostURI = "http://"
+        valuePostURI += self.configData["osn_api_endpoint"] + "/sensors/addValue"
 
         self.threadedSendingQueue.put(postMessageObject(valuePostURI, jsonData))
 
@@ -236,7 +241,12 @@ class OpenSenseNetInstance:
         The call is protected by httpS if possible depending on the used python version
         """
 
-        callURI = "https://" + self.configData["osn_api_endpoint"] + "/" + relativePath
+        callURI = ""
+        if self.configData["encrypt_traffic"]:
+            callURI = "https://"
+        else:
+            callURI = "http://"
+        callURI += self.configData["osn_api_endpoint"] + "/" + relativePath
         heads = {}
         if withAuth:
             heads = {"content-type": "application/json", "Authorization":self.configData["api_token"]}
@@ -290,7 +300,12 @@ class OpenSenseNetInstance:
             heads = {"Content-Type": "application/json", "Accept": "application/json",}
             #heads = {"Content-Type": "application/json"}
 
-        callURI = "https://" + self.configData["osn_api_endpoint"] + "/" + relativePath
+        callURI = ""
+        if self.configData["encrypt_traffic"]:
+            callURI = "https://"
+        else:
+            callURI = "http://"
+        callURI += self.configData["osn_api_endpoint"] + "/" + relativePath
         binaryData = json.dumps(jsonData).encode("utf-8")
 
         req = request.Request(callURI, data=binaryData, headers=heads)
