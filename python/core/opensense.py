@@ -29,16 +29,18 @@ import logging
 import sched
 import glob
 import ssl
+import requests
 
+# obsolete as we switch to requests lib
 # eliminate urllib2 incopatibility between Python v2 and v3
-try:
-    # For Python 3.0 and later
-    from urllib import request
-    from urllib import parse as urlencode
-except ImportError:
-    # Fall back to Python 2's urllib2
-    import urllib2 as request
-    import urllib as urlencode
+# try:
+#     # For Python 3.0 and later
+#     from urllib import request
+#     from urllib import parse as urlencode
+# except ImportError:
+#     # Fall back to Python 2's urllib2
+#     import urllib2 as request
+#     import urllib as urlencode
 
 from threading import Thread, Lock
 import Queue
@@ -105,15 +107,16 @@ class OpenSenseNetInstance:
         self.logger.debug(self.configData)
         self.logger.debug("===== End OSN Config Data =================")
 
-        # Ok, we make a quick and very dirty hack here for caching DNS resolution,
-        # which is otherwise not done / possible when using urllib. Especially for
-        # agents sending many data, this can lead to dns errors
-        import socket
-        self.originalGetAddrInfo = socket.getaddrinfo
-        self.dnsCache = {}  # or a weakref.WeakValueDictionary()
-        self.dnsLookupInterval = 10 # secs
-        self.dnsLastRefresh = time.time() # - ( 2 * self.dnsLookupInterval)
-        socket.getaddrinfo = self.patchedGetAddrInfo
+        # obsolete as we switch to requests lib
+        # # Ok, we make a quick and very dirty hack here for caching DNS resolution,
+        # # which is otherwise not done / possible when using urllib. Especially for
+        # # agents sending many data, this can lead to dns errors
+        # import socket
+        # self.originalGetAddrInfo = socket.getaddrinfo
+        # self.dnsCache = {}  # or a weakref.WeakValueDictionary()
+        # self.dnsLookupInterval = 10 # secs
+        # self.dnsLastRefresh = time.time() # - ( 2 * self.dnsLookupInterval)
+        # socket.getaddrinfo = self.patchedGetAddrInfo
 
         # and now set up some worker threads...
         self.stopped = False
@@ -130,7 +133,7 @@ class OpenSenseNetInstance:
     def login(self):
         #jsonData = [{"username":self.configData["username"], "password":self.configData["password"]}]
         jsonData = {"username":self.configData["username"], "password":self.configData["password"]}
-        self.logger.debug("jsonData: %s" % jsonData)
+        self.logger.debug("Logging in - jsonData: %s" % jsonData)
         #apiToken = self.apiCallPOST("Users/login", jsonData)
         apiToken = self.apiCallPOST("users/login", jsonData, False)
         if "id" in apiToken:
@@ -224,6 +227,7 @@ class OpenSenseNetInstance:
             valuePostURI = "https://"
         else:
             valuePostURI = "http://"
+            self.logger.critical("WARNING! SSL turned off, connection is insecure.")
         valuePostURI += self.configData["osn_api_endpoint"] + "/sensors/addValue"
 
         self.threadedSendingQueue.put(postMessageObject(valuePostURI, jsonData))
@@ -246,46 +250,70 @@ class OpenSenseNetInstance:
             callURI = "https://"
         else:
             callURI = "http://"
+            self.logger.critical("WARNING! SSL turned off, connection is insecure.")
         callURI += self.configData["osn_api_endpoint"] + "/" + relativePath
+        validateCert = None
+        if self.configData["validate_certificate"]:
+            validateCert = True
+        else:
+            validateCert = False
+            self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
+
         heads = {}
         if withAuth:
             heads = {"content-type": "application/json", "Authorization":self.configData["api_token"]}
         else:
             heads = {"content-type": "application/json"}
-        req = request.Request(callURI, headers=heads)
-        # trying to create a secure SSL context for https connections.
-        # Unfortunately, this is only possible with python versions > 2.7.8
-        sslContext = None
-        if sys.version_info.major == 2 and ((sys.version_info.minor < 7) or (sys.version_info.minor == 7 and sys.version_info.micro < 9)):
-            # SSLContext was only introduced with python 2.7.9
-            self.logger.critical("WARNING! Secure communication not properly supported in this python version (%s.%s.%s). Please use python version 2.7.9 or higher!" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
-        else:
-            if self.configData["encrypt_traffic"]:
-                sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-                if self.configData["validate_certificate"]:
-                    sslContext.set_default_verify_paths()
-                    sslContext.verify_mode = ssl.CERT_REQUIRED
-                else:
-                    self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
-            else:
-                    self.logger.critical("WARNING! SSL turned off, connection is insecure.")
+
+        # obsolete as we switch to requests lib
+        # req = request.Request(callURI, headers=heads)
+        # # trying to create a secure SSL context for https connections.
+        # # Unfortunately, this is only possible with python versions > 2.7.8
+        # sslContext = None
+        # if sys.version_info.major == 2 and ((sys.version_info.minor < 7) or (sys.version_info.minor == 7 and sys.version_info.micro < 9)):
+        #     # SSLContext was only introduced with python 2.7.9
+        #     self.logger.critical("WARNING! Secure communication not properly supported in this python version (%s.%s.%s). Please use python version 2.7.9 or higher!" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
+        # else:
+        #     if self.configData["encrypt_traffic"]:
+        #         sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        #         if self.configData["validate_certificate"]:
+        #             sslContext.set_default_verify_paths()
+        #             sslContext.verify_mode = ssl.CERT_REQUIRED
+        #         else:
+        #             self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
+        #     else:
+        #             self.logger.critical("WARNING! SSL turned off, connection is insecure.")
 
         try:
-            if sslContext:
-                handle = request.urlopen(req, timeout=10, context=sslContext)
-            else:
-                handle = request.urlopen(req, timeout=10)
-            response = handle.read().decode('utf-8')
-            handle.close()
+            response = requests.get(callURI, headers=heads, verify=validateCert)
             jsonRet = None
             try:
-                jsonRet = json.loads(response)[0]
+                jsonRet = response.json()[0]
             except BaseException as e:
-                jsonRet = json.loads(response)
+                jsonRet = response.json()
             return jsonRet
         except BaseException as e:
             self.logger.debug("Couldn't perform api GET call to %s. Exception message: %s" % (callURI, e))
             return {}
+
+
+        # obsolete as we switch to requests lib
+        # try:
+        #     if sslContext:
+        #         handle = request.urlopen(req, timeout=10, context=sslContext)
+        #     else:
+        #         handle = request.urlopen(req, timeout=10)
+        #     response = handle.read().decode('utf-8')
+        #     handle.close()
+        #     jsonRet = None
+        #     try:
+        #         jsonRet = json.loads(response)[0]
+        #     except BaseException as e:
+        #         jsonRet = json.loads(response)
+        #     return jsonRet
+        # except BaseException as e:
+        #     self.logger.debug("Couldn't perform api GET call to %s. Exception message: %s" % (callURI, e))
+        #     return {}
 
     def apiCallPOST(self, relativePath, jsonData, withAuth=True):
         """
@@ -305,49 +333,69 @@ class OpenSenseNetInstance:
             callURI = "https://"
         else:
             callURI = "http://"
+            self.logger.critical("WARNING! SSL turned off, connection is insecure.")
         callURI += self.configData["osn_api_endpoint"] + "/" + relativePath
-        binaryData = json.dumps(jsonData).encode("utf-8")
+        validateCert = None
+        if self.configData["validate_certificate"]:
+            validateCert = True
+        else:
+            validateCert = False
+            self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
 
-        req = request.Request(callURI, data=binaryData, headers=heads)
+        # obsolete as we switch to requests lib
+        #binaryData = json.dumps(jsonData).encode("utf-8")
+        #req = request.Request(callURI, data=binaryData, headers=heads)
+
         #self.logger.debug("callUri: %s", callURI)
         #self.logger.debug("binary: %s", binaryData)
         #self.logger.debug("heads: %s", heads)
 
-        # trying to create a secure SSL context for https connections.
-        # Unfortunately, this is only possible with python versions > 2.7.8
-        sslContext = None
-        if sys.version_info.major == 2 and ((sys.version_info.minor < 7) or (sys.version_info.minor == 7 and sys.version_info.micro < 9)):
-            # SSLContext was only introduced with python 2.7.9
-            self.logger.critical("WARNING! Secure communication not properly supported in this python version (%s.%s.%s). Please use python version 2.7.9 or higher!" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
-        else:
-            if self.configData["encrypt_traffic"]:
-                sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-                if self.configData["validate_certificate"]:
-                    sslContext.set_default_verify_paths()
-                    sslContext.verify_mode = ssl.CERT_REQUIRED
-                else:
-                    self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
-            else:
-                    self.logger.critical("WARNING! SSL turned off, connection is insecure.")
+        # obsolete as we switch to requests lib
+        # # trying to create a secure SSL context for https connections.
+        # # Unfortunately, this is only possible with python versions > 2.7.8
+        # sslContext = None
+        # if sys.version_info.major == 2 and ((sys.version_info.minor < 7) or (sys.version_info.minor == 7 and sys.version_info.micro < 9)):
+        #     # SSLContext was only introduced with python 2.7.9
+        #     self.logger.critical("WARNING! Secure communication not properly supported in this python version (%s.%s.%s). Please use python version 2.7.9 or higher!" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
+        # else:
+        #     if self.configData["encrypt_traffic"]:
+        #         sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        #         if self.configData["validate_certificate"]:
+        #             sslContext.set_default_verify_paths()
+        #             sslContext.verify_mode = ssl.CERT_REQUIRED
+        #         else:
+        #             self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
+        #     else:
+        #             self.logger.critical("WARNING! SSL turned off, connection is insecure.")
+
 
         try:
-            response = None
-            if sslContext:
-                handle = request.urlopen(req, timeout=10, context=sslContext)
-            else:
-                handle = request.urlopen(req, timeout=10)
-            response = handle.read().decode('utf-8')
-            handle.close()
-            jsonRet = None
-            try:
-                #jsonRet = json.loads(response)[0]
-                jsonRet = json.loads(response)
-            except BaseException as e:
-                jsonRet = json.loads(response)
+            response = requests.post(callURI, json=jsonData, headers=heads, verify=validateCert)
+            jsonRet = response.json()
             return jsonRet
         except BaseException as e:
             self.logger.debug("Couldn't perform api POST call to %s. Exception message: %s" % (callURI, e))
             return {}
+
+        # obsolete as we switch to requests lib
+        # try:
+        #     response = None
+        #     if sslContext:
+        #         handle = request.urlopen(req, timeout=10, context=sslContext)
+        #     else:
+        #         handle = request.urlopen(req, timeout=10)
+        #     response = handle.read().decode('utf-8')
+        #     handle.close()
+        #     jsonRet = None
+        #     try:
+        #         #jsonRet = json.loads(response)[0]
+        #         jsonRet = json.loads(response)
+        #     except BaseException as e:
+        #         jsonRet = json.loads(response)
+        #     return jsonRet
+        # except BaseException as e:
+        #     self.logger.debug("Couldn't perform api POST call to %s. Exception message: %s" % (callURI, e))
+        #     return {}
 
     def threadedApiCallPOST(self):
         """
@@ -362,60 +410,95 @@ class OpenSenseNetInstance:
 
         callURI = ""
         binaryData = ""
-        req = None
-        # trying to create a secure SSL context for https connections.
-        # Unfortunately, this is only possible with python versions > 2.7.8
-        sslContext = None
-        if sys.version_info.major == 2 and ((sys.version_info.minor < 7) or (sys.version_info.minor == 7 and sys.version_info.micro < 9)):
-            # SSLContext was only introduced with python 2.7.9
-            self.logger.critical("WARNING! Secure communication not properly supported in this python version (%s.%s.%s). Please use python version 2.7.9 or higher!" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
+
+        # obsolete as we switch to requests lib
+        #req = None
+
+        #now with requests lib
+        session = requests.Session()
+        validateCert = None
+        if self.configData["validate_certificate"]:
+            validateCert = True
         else:
-            if self.configData["encrypt_traffic"]:
-                sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-                if self.configData["validate_certificate"]:
-                    sslContext.set_default_verify_paths()
-                    sslContext.verify_mode = ssl.CERT_REQUIRED
-                else:
-                    self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
-            else:
-                    self.logger.critical("WARNING! SSL turned off, connection is insecure.")
+            validateCert = False
+
+        # obsolete as we switch to requests lib
+        # # trying to create a secure SSL context for https connections.
+        # # Unfortunately, this is only possible with python versions > 2.7.8
+        # sslContext = None
+        # if sys.version_info.major == 2 and ((sys.version_info.minor < 7) or (sys.version_info.minor == 7 and sys.version_info.micro < 9)):
+        #     # SSLContext was only introduced with python 2.7.9
+        #     self.logger.critical("WARNING! Secure communication not properly supported in this python version (%s.%s.%s). Please use python version 2.7.9 or higher!" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
+        # else:
+        #     if self.configData["encrypt_traffic"]:
+        #         sslContext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        #         if self.configData["validate_certificate"]:
+        #             sslContext.set_default_verify_paths()
+        #             sslContext.verify_mode = ssl.CERT_REQUIRED
+        #         else:
+        #             self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
+        #     else:
+        #             self.logger.critical("WARNING! SSL turned off, connection is insecure.")
 
         while True:
             if self.stopped:
                 self.logger.debug("exiting sender thread")
                 break
-                # have a small break and then proceed without touchen queue, which is serialized
+                # have a small break and then proceed without touching queue, which is serialized
                 #time.sleep(0.1)
                 #continue
             else:
                 # have a small break for letting the main thread proceed
                 time.sleep(0.01)
 
-            handle = None
+            # obsolete as we switch to requests lib
+            # handle = None
             messageObject = self.threadedSendingQueue.get()
             #self.logger.debug("api post worker received msg from queue - queue size: %s" % self.threadedSendingQueue.qsize())
             callURI = messageObject.getPostUri()
-            binaryData = json.dumps(messageObject.getJsonData()).encode("utf-8")
-            req = request.Request(callURI, data=binaryData, headers=heads)
+            # obsolete as we switch to requests lib
+            # binaryData = json.dumps(messageObject.getJsonData()).encode("utf-8")
+
+            if not validateCert:
+                self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
 
             try:
-                if sslContext:
-                    handle = request.urlopen(req, timeout=20, context=sslContext)
-                    response = handle.read() # we're not interested in this response, but reading might be necessary for the connection to close on some operating systems...
+                response = session.post(callURI, json=messageObject.getJsonData(), headers=heads, verify=validateCert)
+                if response.status_code == requests.codes.ok:
+                    self.logger.debug("api post worker successfully sent message")
+                    self.notifyPostThreadSucceeded()
                 else:
-                    handle = request.urlopen(req, timeout=20)
-                    response = handle.read() # we're not interested in this response, but reading might be necessary for the connection to close on some operating systems...
-                handle.close()
-                self.logger.debug("api post worker successfully sent message")
-                self.notifyPostThreadSucceeded()
+                    self.threadedSendingQueue.put(messageObject)
+                    self.logger.debug("Couldn't perform threaded api POST call to %s. Response Code: %s. Num succeeded / failed threads: %s / %s" % (callURI, response.status_code, self.numSucceededThreads, self.numFailedThreads))
+                    self.notifyPostThreadFailed()
             except BaseException as e:
-                if handle is not None:
-                    handle.close()
                 self.threadedSendingQueue.put(messageObject)
                 self.logger.debug("Couldn't perform threaded api POST call to %s. Exception message: %s. Putting message back in queue. Num succeeded / failed threads: %s / %s" % (callURI, e, self.numSucceededThreads, self.numFailedThreads))
                 self.notifyPostThreadFailed()
             self.logger.debug("Num succeeded / failed threads: %s / %s" % (self.numSucceededThreads, self.numFailedThreads))
             self.threadedSendingQueue.task_done()
+
+            # obsolete as we switch to requests lib
+            # req = request.Request(callURI, data=binaryData, headers=heads)
+            #
+            # try:
+            #     if sslContext:
+            #         handle = request.urlopen(req, timeout=20, context=sslContext)
+            #         response = handle.read() # we're not interested in this response, but reading might be necessary for the connection to close on some operating systems...
+            #     else:
+            #         handle = request.urlopen(req, timeout=20)
+            #         response = handle.read() # we're not interested in this response, but reading might be necessary for the connection to close on some operating systems...
+            #     handle.close()
+            #     self.logger.debug("api post worker successfully sent message")
+            #     self.notifyPostThreadSucceeded()
+            # except BaseException as e:
+            #     if handle is not None:
+            #         handle.close()
+            #     self.threadedSendingQueue.put(messageObject)
+            #     self.logger.debug("Couldn't perform threaded api POST call to %s. Exception message: %s. Putting message back in queue. Num succeeded / failed threads: %s / %s" % (callURI, e, self.numSucceededThreads, self.numFailedThreads))
+            #     self.notifyPostThreadFailed()
+            # self.logger.debug("Num succeeded / failed threads: %s / %s" % (self.numSucceededThreads, self.numFailedThreads))
+            # self.threadedSendingQueue.task_done()
 
     def notifyPostThreadFailed (self):
         """
