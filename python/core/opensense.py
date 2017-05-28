@@ -186,8 +186,13 @@ class OpenSenseNetInstance:
         """
         retVal = None
         queryString = "?filter[where][name]=" + unitString + "&filter[where][measurandId]=" + str(measurandId)
-        relativePath = "/units" + queryString
+        relativePath = "units" + queryString
         apiResponse = self.apiCallGET(relativePath, False)
+        try:
+            apiResponse = apiResponse[0]
+        except BaseException as e:
+            self.logger.debug("Could not get UnitId. API Response empty. Exception message: %s" % (e))
+            return retVal
         if "id" in apiResponse:
             retVal = apiResponse["id"]
             self.logger.debug("got the unit id for %s: %s" % (unitString, retVal))
@@ -199,8 +204,13 @@ class OpenSenseNetInstance:
         """
         retVal = None
         queryString = "?filter[where][name]=" + measurandString
-        relativePath = "/measurands" + queryString
+        relativePath = "measurands" + queryString
         apiResponse = self.apiCallGET(relativePath, False)
+        try:
+            apiResponse = apiResponse[0]
+        except BaseException as e:
+            self.logger.debug("Could not get MeasurandId. API Response empty. Exception message: %s" % (e))
+            return retVal
         if "id" in apiResponse:
             retVal = apiResponse["id"]
             self.logger.debug("got the measurand id for %s: %s" % (measurandString, retVal))
@@ -288,9 +298,9 @@ class OpenSenseNetInstance:
             response = requests.get(callURI, headers=heads, verify=validateCert)
             jsonRet = None
             try:
-                jsonRet = response.json()[0]
-            except BaseException as e:
                 jsonRet = response.json()
+            except BaseException as e:
+                self.logger.debug("Couldn't perform api GET call to %s. Exception message: %s" % (callURI, e))
             return jsonRet
         except BaseException as e:
             self.logger.debug("Couldn't perform api GET call to %s. Exception message: %s" % (callURI, e))
