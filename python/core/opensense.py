@@ -61,6 +61,7 @@ class OpenSenseNetInstance:
         # read configfile
         config_changed = False
         self.threadedSendingQueue = Queue.Queue()
+        self.bulkSendingArrays = {} # this is a dict of arrays
 
         with open(configFile) as data_file:
             self.configData = json.load(data_file)
@@ -88,6 +89,12 @@ class OpenSenseNetInstance:
             if "validate_certificate" not in self.configData:
                 self.configData["validate_certificate"]=True # default settings for less load-heavy scenarios. Increase as appropriate
                 config_changed = True
+            if "max_bulk_sending_arrays" not in self.configData:
+                self.configData["max_bulk_sending_arrays"]=10 # default settings for less load-heavy scenarios. Increase as appropriate
+                config_changed = True
+            if "max_bulk_sending_array_length" not in self.configData:
+                self.configData["max_bulk_sending_array_length"]=100 # default settings for less load-heavy scenarios. Increase as appropriate
+                config_changed = True
             if "unsentMessages" in self.configData:
                 unsentMessages = self.configData["unsentMessages"]
                 msgCount = 0
@@ -111,17 +118,22 @@ class OpenSenseNetInstance:
         # # Ok, we make a quick and very dirty hack here for caching DNS resolution,
         # # which is otherwise not done / possible when using urllib. Especially for
         # # agents sending many data, this can lead to dns errors
-        # import socket
-        # self.originalGetAddrInfo = socket.getaddrinfo
-        # self.dnsCache = {}  # or a weakref.WeakValueDictionary()
-        # self.dnsLookupInterval = 10 # secs
-        # self.dnsLastRefresh = time.time() # - ( 2 * self.dnsLookupInterval)
-        # socket.getaddrinfo = self.patchedGetAddrInfo
+        #import socket
+        #self.originalGetAddrInfo = socket.getaddrinfo
+        #self.dnsCache = {}  # or a weakref.WeakValueDictionary()
+        #self.dnsLookupInterval = 10 # secs
+        #self.dnsLastRefresh = {} #time.time() # - ( 2 * self.dnsLookupInterval)
+        #socket.getaddrinfo = self.patchedGetAddrInfo
 
         # and now set up some worker threads...
         self.stopped = False
         self.numFailedThreads = 0
         self.numSucceededThreads = 0
+        self.numHandledValues = 0
+        self.numSentValues = 0
+        self.startTime = time.time()
+        self.loginInitiated = False
+        self.lastLogin = time.time() - 61 # we use this variable for preventing overly repeated auto-logins
         self.logger.info("logging in...")
         self.login()
         self.logger.debug("creating %s sender threads" % self.configData["max_sending_threads"])
@@ -131,6 +143,13 @@ class OpenSenseNetInstance:
             worker.start()
 
     def login(self):
+        if self.loginInitiated == False:
+            self.loginInitiated = True
+        self.logger.info("login. curTime is %s, lastlogin was %s" % (time.time(), self.lastLogin))
+        while time.time() - self.lastLogin < 60: #should not happen more often than once a minute
+            self.logger.info("repeated login - postponing for a while... curTime is %s, lastlogin was %s" % (time.time(), self.lastLogin))
+            time.sleep(0.3)
+        self.lastLogin = time.time()
         #jsonData = [{"username":self.configData["username"], "password":self.configData["password"]}]
         jsonData = {"username":self.configData["username"], "password":self.configData["password"]}
         self.logger.debug("Logging in - jsonData: %s" % jsonData)
@@ -139,7 +158,8 @@ class OpenSenseNetInstance:
         if "id" in apiToken:
             self.configData["api_token"] = apiToken["id"]
             self.serializeConfig()
-            self.logger.debug("logged in, token is: %s", apiToken)
+            self.logger.info("logged in, token is: %s", apiToken)
+        self.loginInitiated = False
 
     def createRemoteSensor (self, measurandString, unitString, additional_params = None):
         """
@@ -169,7 +189,7 @@ class OpenSenseNetInstance:
         params.update(additional_params)
         jsonData = params
         self.logger.debug("sending post request in createSensor")
-        apiResponse = self.apiCallPOST("/sensors/addSensor", jsonData)
+        apiResponse = self.apiCallPOST("sensors/addSensor", jsonData)
 
         if "id" in apiResponse:
             retVal = apiResponse["id"]
@@ -220,27 +240,87 @@ class OpenSenseNetInstance:
         """
         Sends a value for the given remoteSensorId to the platform. Currently, value muste be a number. Values are sent using multiple sender threads.
         """
-        self.logger.debug("sending value <%s> for remote sensor id %s..." % (value, remoteSensorId))
-        if utcTime == None:
-            utcTime = datetime.datetime.utcnow()
+        #self.logger.debug("sending value <%s> for remote sensor id %s..." % (value, remoteSensorId))
+        jsonData = self.makeValueSendingJson(value, utcTime)
+        # we don't need this in bulk-sending, must thus be added manually
+        jsonData["sensorId"] = remoteSensorId
+        valuePostURI = self.makeValueSendingURI("sensors/addValue")
+        if self.queueLength() > self.configData["max_queue_length"]:
+            targetLength = (self.configData["max_queue_length"] * 2 / 3)
+            self.logger.debug("Queue has more than %s entries - sleeping till below %s..." % (self.configData["max_queue_length"], targetLength))
+            while self.queueLength() > targetLength:
+                time.sleep(0.1)
+        self.threadedSendingQueue.put(postMessageObject(valuePostURI, jsonData))
+        self.numHandledValues += 1
+
+    def putValueToBulkSending (self, remoteSensorId, value, utcTime = None):
+        """
+        Puts a value for the given remoteSensorId to the corresponding bulk-sending array, which is automatically sent once configured length or number of arrays is reached. Currently, value muste be a number.
+        """
+        #self.logger.debug("putting value <%s> for remote sensor id %s to bulk sending..." % (value, remoteSensorId))
+        jsonData = self.makeValueSendingJson(value, utcTime)
+        if remoteSensorId in self.bulkSendingArrays:
+            #this sending array already exists
+            self.bulkSendingArrays[remoteSensorId].append(jsonData)
+        else:
+            self.bulkSendingArrays[remoteSensorId] = [jsonData]
+
+        # ensure to cool down a bit - queue might consist of very large bulks...
         if self.queueLength() > self.configData["max_queue_length"]:
             targetLength = (self.configData["max_queue_length"] * 2 / 3)
             self.logger.debug("Queue has more than %s entries - sleeping till below %s..." % (self.configData["max_queue_length"], targetLength))
             while self.queueLength() > targetLength:
                 time.sleep(0.1)
 
+        # now check if configured max values are reached and automatically flush
+        # the respective array might, however, just have been removed from the list, so check first
+        if (remoteSensorId in self.bulkSendingArrays) and (len(self.bulkSendingArrays[remoteSensorId]) > self.configData["max_bulk_sending_array_length"]):
+            #self.logger.debug("maxLength of %s reached for %s - flushing..." % (self.configData["max_bulk_sending_array_length"], remoteSensorId))
+            self.flushBulkSendingArray(remoteSensorId)
+        if len(self.bulkSendingArrays) > self.configData["max_bulk_sending_arrays"]:
+            #find longest array in dict
+            maxLength = 0
+            remoteIdToFlush = -1
+            for key in self.bulkSendingArrays:
+                if len(self.bulkSendingArrays[key]) > maxLength:
+                    remoteIdToFlush = key
+                    maxLength = len(self.bulkSendingArrays[key])
+            #self.logger.debug("maxNum of %s bulk sending arrays reached - flushing %s with length %s..." % (self.configData["max_bulk_sending_arrays"], remoteIdToFlush, maxLength))
+            self.flushBulkSendingArray(remoteIdToFlush)
+        self.numHandledValues += 1
+
+
+
+    def flushBulkSendingArray(self, remoteSensorId):
+        self.logger.debug("flushing bulk array for %s..." %remoteSensorId)
+        messageArray = self.bulkSendingArrays.pop(remoteSensorId, None)
+        if messageArray:
+            valuePostURI = self.makeValueSendingURI("sensors/addMultipleValues")
+            self.threadedSendingQueue.put(postMessageObject(valuePostURI, {"sensorId":remoteSensorId, "values":messageArray}))
+
+    def flushAllBulkSendingArrays(self):
+        #print("flushing all bulk arrays")
+        while self.bulkSendingArrays:
+            remoteSensorId = self.bulkSendingArrays.keys()[0]
+            self.flushBulkSendingArray(remoteSensorId)
+
+    def makeValueSendingJson(self, value, utcTime):
+        if utcTime == None:
+            utcTime = datetime.datetime.utcnow()
         timestampstring = utcTime.strftime("%Y-%m-%dT%H:%M:%S.") + ("%sZ" % (utcTime.microsecond//1000))
         # note: we always assume a number value here - string values are not supported by API yet but might be added somewhen later
-        jsonData = {"numberValue":value, "timestamp":timestampstring, "sensorId":remoteSensorId}
+        jsonData = {"numberValue":value, "timestamp":timestampstring}
+        return jsonData
+
+    def makeValueSendingURI(self, relativePath):
         valuePostURI = ""
         if self.configData["encrypt_traffic"]:
             valuePostURI = "https://"
         else:
             valuePostURI = "http://"
-            self.logger.critical("WARNING! SSL turned off, connection is insecure.")
-        valuePostURI += self.configData["osn_api_endpoint"] + "/sensors/addValue"
-
-        self.threadedSendingQueue.put(postMessageObject(valuePostURI, jsonData))
+            #self.logger.critical("WARNING! SSL turned off, connection is insecure.")
+        valuePostURI += self.configData["osn_api_endpoint"] + "/" + relativePath
+        return valuePostURI
 
     def queueLength(self):
         """
@@ -260,7 +340,7 @@ class OpenSenseNetInstance:
             callURI = "https://"
         else:
             callURI = "http://"
-            self.logger.critical("WARNING! SSL turned off, connection is insecure.")
+            #self.logger.critical("WARNING! SSL turned off, connection is insecure.")
         callURI += self.configData["osn_api_endpoint"] + "/" + relativePath
         validateCert = None
         if self.configData["validate_certificate"]:
@@ -334,6 +414,7 @@ class OpenSenseNetInstance:
         heads = {}
         if withAuth:
             heads = {"Content-Type": "application/json", "Accept": "application/json", "Authorization":self.configData["api_token"]}
+            self.logger.debug("authorizing with %s..." % self.configData["api_token"])
         else:
             heads = {"Content-Type": "application/json", "Accept": "application/json",}
             #heads = {"Content-Type": "application/json"}
@@ -343,14 +424,14 @@ class OpenSenseNetInstance:
             callURI = "https://"
         else:
             callURI = "http://"
-            self.logger.critical("WARNING! SSL turned off, connection is insecure.")
+            #self.logger.critical("WARNING! SSL turned off, connection is insecure.")
         callURI += self.configData["osn_api_endpoint"] + "/" + relativePath
         validateCert = None
         if self.configData["validate_certificate"]:
             validateCert = True
         else:
             validateCert = False
-            self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
+            #self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
 
         # obsolete as we switch to requests lib
         #binaryData = json.dumps(jsonData).encode("utf-8")
@@ -416,7 +497,6 @@ class OpenSenseNetInstance:
         The call is protected by httpS if possible depending on the used python version
         """
         self.logger.debug("api post worker thread created - waiting for queue to be filled")
-        heads = {"Content-Type": "application/json", "Accept": "application/json", "Authorization":self.configData["api_token"]}
 
         callURI = ""
         binaryData = ""
@@ -466,26 +546,47 @@ class OpenSenseNetInstance:
             messageObject = self.threadedSendingQueue.get()
             #self.logger.debug("api post worker received msg from queue - queue size: %s" % self.threadedSendingQueue.qsize())
             callURI = messageObject.getPostUri()
+            jsonData = messageObject.getJsonData()
+            numContainedValues = 1
+            if "values" in jsonData:
+                numContainedValues = len(jsonData["values"])
+            heads = {"Content-Type": "application/json", "Accept": "application/json", "Authorization":self.configData["api_token"]}
             # obsolete as we switch to requests lib
             # binaryData = json.dumps(messageObject.getJsonData()).encode("utf-8")
 
-            if not validateCert:
-                self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
+            #if not validateCert:
+            #    self.logger.critical("WARNING! Using insecure SSL connection (certificates of %s will not be validated)." % callURI)
 
             try:
-                response = session.post(callURI, json=messageObject.getJsonData(), headers=heads, verify=validateCert)
+                #self.logger.debug("api post worker doing request...")
+                response = session.post(callURI, json=jsonData, headers=heads, verify=validateCert)
                 if response.status_code == requests.codes.ok:
-                    self.logger.debug("api post worker successfully sent message")
+                    #self.logger.debug("api post worker successfully sent message")
+                    self.numSentValues += numContainedValues
                     self.notifyPostThreadSucceeded()
                 else:
-                    self.threadedSendingQueue.put(messageObject)
                     self.logger.debug("Couldn't perform threaded api POST call to %s. Response Code: %s. Num succeeded / failed threads: %s / %s" % (callURI, response.status_code, self.numSucceededThreads, self.numFailedThreads))
+                    if response.status_code == 401:
+                        # authorization failed, might be due to token expiration, so re-logging in in case this was nt just recently triggered
+                        self.logger.info("Initiating new login to renew token")
+                        if not self.loginInitiated:
+                            self.loginInitiated = True
+                            self.logger.debug("Authentication failed at timestamp %s (last login at %s). Logging in again." % (time.time(), self.lastLogin))
+                            self.logger.debug("now invalid token is: %s" % self.configData["api_token"])
+                            self.login()
+                            self.loginInitiated = False
+                        else:
+                            while self.loginInitiated:
+                                # this thread shall wait some time till the other finished login
+                                self.logger.debug("waiting 0.5 sec for login to be completed by other thread")
+                                time.sleep(0.5)
+                    self.threadedSendingQueue.put(messageObject)
                     self.notifyPostThreadFailed()
             except BaseException as e:
                 self.threadedSendingQueue.put(messageObject)
                 self.logger.debug("Couldn't perform threaded api POST call to %s. Exception message: %s. Putting message back in queue. Num succeeded / failed threads: %s / %s" % (callURI, e, self.numSucceededThreads, self.numFailedThreads))
                 self.notifyPostThreadFailed()
-            self.logger.debug("Num succeeded / failed threads: %s / %s" % (self.numSucceededThreads, self.numFailedThreads))
+            #self.logger.debug("Num succeeded / failed threads: %s / %s" % (self.numSucceededThreads, self.numFailedThreads))
             self.threadedSendingQueue.task_done()
 
             # obsolete as we switch to requests lib
@@ -543,19 +644,20 @@ class OpenSenseNetInstance:
         Instead of calling the DNS for every single http request, DNS is only queried every 10 seconds
         """
         try:
-            if (time.time() - self.dnsLastRefresh) > self.dnsLookupInterval:
-                #print("re-fetching DNS")
+            if (time.time() - self.dnsLastRefresh[args[0]]) > self.dnsLookupInterval:
+                print("re-fetching DNS for <%s>" % args[0])
                 res = self.originalGetAddrInfo(*args)
-                self.dnsCache[args] = res
-                self.dnsLastRefresh = time.time()
+                self.dnsCache[args[0]] = res
+                self.dnsLastRefresh[args[0]] = time.time()
                 return res
             else:
-                #print("returning cached DNS")
-                return self.dnsCache[args]
+                print("returning cached DNS for %s" % args[0])
+                return self.dnsCache[args[0]]
         except KeyError:
-            #print("initially fetching DNS")
+            print("initially fetching DNS for %s" % args[0])
             res = self.originalGetAddrInfo(*args)
-            self.dnsCache[args] = res
+            self.dnsCache[args[0]] = res
+            self.dnsLastRefresh[args[0]] = time.time()
             return res
 
     def serializeConfig (self):
@@ -578,6 +680,9 @@ class OpenSenseNetInstance:
         """
         self.logger.info("stopping gracefully...")
         self.stopped = True
+        self.logger.info("during runtime, sent %s values overall within %s seconds (%s values/s)" % (self.numSentValues, time.time()-self.startTime, self.numSentValues/(time.time()-self.startTime)))
+        # flush everything remembered for bulk sending and not yet put to message queue
+        self.flushAllBulkSendingArrays()
         # remember unsent messages in configdata
         queueSerializer = Thread(target = self.transferQueueToMessageList)
         queueSerializer.daemon = True # necessary as thread would otherwise block exiting tha main process. Join, however, prevents main process to proceed before serializer is done
@@ -588,6 +693,7 @@ class OpenSenseNetInstance:
         if "unsentMessages" in self.configData:
             numUnsent = len(self.configData["unsentMessages"])
         self.logger.info("serialized %s unsent messages" % numUnsent)
+        #self.logger.info(self.configData["unsentMessages"])
         self.serializeConfig()
 
 class postMessageObject:
