@@ -161,15 +161,16 @@ class OpenSenseNetInstance:
             self.logger.info("logged in, token is: %s", apiToken)
         self.loginInitiated = False
 
-    def createRemoteSensor (self, measurandString, unitString, additional_params = None):
+    def createRemoteSensor (self, measurandString, unitString, licenseString, additional_params = None):
         """
         Creates a new sensor on the opensense platform and returns ID if successful, None if not.
 
         measurandString defines what is measured (e.g. "temperature" or "noise"), unitString
-        defines the measurands unit (e.g. "celsius" or "decibel").
-        The platform maintains a (growing) list of well-defined measurand- and unit-IDs to which
-        these strings are mapped (mapping happens after converting everything to lower-case).
-        Currently, however, this list and the respective mapping functionality is very limited.
+        defines the measurands unit (e.g. "celsius" or "decibel"), licenseString defines the
+        license under which respective sensor data should be available (e.g. "ODC-PDDL").
+        The platform maintains a (growing) list of well-defined measurand-, unit-, and
+        license-IDs to which these strings are mapped. Currently, however, this list and the
+        respective mapping functionality is very limited.
         """
         if additional_params == None:
             additional_params = {}
@@ -177,14 +178,15 @@ class OpenSenseNetInstance:
         self.logger.debug("creating new sensor on platform with measurand %s and unit %s..." % (measurandString, unitString))
         measurandId = self.getMeasurandId(measurandString.lower())
         unitId = self.getUnitId(measurandId, unitString)
+        licenseId = self.getLicenseId(licenseString)
         # check that both ids could be properly identified. If not, break
-        if (not measurandId or not unitId):
-            self.logger.debug("Sensor could not be created - Either measurandString (%s) or unitString (%s) not supported by platform yet" % (measurandString, unitString))
+        if (not measurandId or not unitId or not measurandId):
+            self.logger.debug("Sensor could not be created - Either measurandString (%s) or unitString (%s) or licenseString (%s) not supported by platform yet" % (measurandString, unitString, licenseString))
             return retVal
 
         # the following values might somehow be programmatically identified later
         # now pack stuff together for api call
-        params = {"measurandId":measurandId, "unitId":unitId}
+        params = {"measurandId":measurandId, "unitId":unitId, "licenseId":licenseId}
         #params = {"measurandId":measurandId, "unitId":unitId}
         params.update(additional_params)
         jsonData = params
@@ -205,7 +207,7 @@ class OpenSenseNetInstance:
         the given measurand.
         """
         retVal = None
-        queryString = "?filter[where][name]=" + unitString + "&filter[where][measurandId]=" + str(measurandId)
+        queryString = "?name=" + unitString + "&measurandId=" + str(measurandId)
         relativePath = "units" + queryString
         apiResponse = self.apiCallGET(relativePath, False)
         try:
@@ -223,7 +225,7 @@ class OpenSenseNetInstance:
         Fetches the unique, well-defined unit ID associated with a given measurand-String (eg "temperature"). Returns None if unit-String could not be matched
         """
         retVal = None
-        queryString = "?filter[where][name]=" + measurandString
+        queryString = "?name=" + measurandString
         relativePath = "measurands" + queryString
         apiResponse = self.apiCallGET(relativePath, False)
         try:
@@ -234,6 +236,24 @@ class OpenSenseNetInstance:
         if "id" in apiResponse:
             retVal = apiResponse["id"]
             self.logger.debug("got the measurand id for %s: %s" % (measurandString, retVal))
+        return retVal
+
+    def getLicenseId(self, licenseShortName):
+        """
+        Fetches the unique, well-defined license ID associated with a given short name (eg "ODC-PDDL"). Returns None if short name could not be matched
+        """
+        retVal = None
+        queryString = "?shortName=" + licenseShortName
+        relativePath = "licenses" + queryString
+        apiResponse = self.apiCallGET(relativePath, False)
+        try:
+            apiResponse = apiResponse[0]
+        except BaseException as e:
+            self.logger.debug("Could not get License Id. API Response empty. Exception message: %s" % (e))
+            return retVal
+        if "id" in apiResponse:
+            retVal = apiResponse["id"]
+            self.logger.debug("got the license id for %s: %s" % (licenseShortName, retVal))
         return retVal
 
     def sendValue (self, remoteSensorId, value, utcTime = None):
@@ -565,6 +585,9 @@ class OpenSenseNetInstance:
                     self.numSentValues += numContainedValues
                     self.notifyPostThreadSucceeded()
                 else:
+                    if self.stopped:
+                        self.logger.debug("exiting sender thread")
+                        break
                     self.logger.debug("Couldn't perform threaded api POST call to %s. Response Code: %s. Num succeeded / failed threads: %s / %s" % (callURI, response.status_code, self.numSucceededThreads, self.numFailedThreads))
                     if response.status_code == 401:
                         # authorization failed, might be due to token expiration, so re-logging in in case this was nt just recently triggered
