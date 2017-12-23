@@ -159,7 +159,7 @@ class AbstractAgent(Thread):
 
     def sensorActive (self, localSensorId):
         """
-        Checks whether the sensor should be processed or skipped. If an openhab remote ID
+        Checks whether the sensor should be processed or skipped. If an opensense remote ID
         is configured for the sensor, it is assumed to be active. If no remote ID is set,
         the sensor is inactive.
 
