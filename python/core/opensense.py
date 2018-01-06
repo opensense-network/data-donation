@@ -62,6 +62,7 @@ class OpenSenseNetInstance:
         config_changed = False
         self.threadedSendingQueue = Queue.Queue()
         self.bulkSendingArrays = {} # this is a dict of arrays
+        self.collapsedSendingArray = [] # and this is an array for sending collapsedMessages - multiple messages for *different* sensors at a time
 
         with open(configFile) as data_file:
             self.configData = json.load(data_file)
@@ -273,6 +274,29 @@ class OpenSenseNetInstance:
         self.threadedSendingQueue.put(postMessageObject(valuePostURI, jsonData))
         self.numHandledValues += 1
 
+    def putValueToCollapsedSending (self, remoteSensorId, value, utcTime = None):
+        """
+        puts a value for a given Sensor to the array for collapsed sending and sends array if max length is reached. Currently, value muste be a number. Values are sent using multiple sender threads.
+        """
+        #self.logger.debug("sending value <%s> for remote sensor id %s..." % (value, remoteSensorId))
+        jsonData = self.makeValueSendingJson(value, utcTime)
+        # we don't need this in bulk-sending, must thus be added manually
+        jsonData["sensorId"] = remoteSensorId
+        self.collapsedSendingArray.append(jsonData)
+        if len(self.collapsedSendingArray) >= self.configData["max_bulk_sending_array_length"]:
+            # cool down a bit in case queue is too long
+            if self.queueLength() > self.configData["max_queue_length"]:
+                targetLength = (self.configData["max_queue_length"] * 2 / 3)
+                self.logger.debug("Queue has more than %s entries - sleeping till below %s..." % (self.configData["max_queue_length"], targetLength))
+                while self.queueLength() > targetLength:
+                    time.sleep(0.1)
+            valuePostURI = self.makeValueSendingURI("sensors/addMultipleValues")
+            collapsedJson = {"collapsedMessages": self.collapsedSendingArray}
+            self.collapsedSendingArray = []
+            self.threadedSendingQueue.put(postMessageObject(valuePostURI, collapsedJson))
+
+        self.numHandledValues += 1
+
     def putValueToBulkSending (self, remoteSensorId, value, utcTime = None):
         """
         Puts a value for the given remoteSensorId to the corresponding bulk-sending array, which is automatically sent once configured length or number of arrays is reached. Currently, value muste be a number.
@@ -323,6 +347,13 @@ class OpenSenseNetInstance:
         while self.bulkSendingArrays:
             remoteSensorId = self.bulkSendingArrays.keys()[0]
             self.flushBulkSendingArray(remoteSensorId)
+        # also flush the collapsed array if there is something in it
+        if len(self.collapsedSendingArray) > 0:
+            valuePostURI = self.makeValueSendingURI("sensors/addMultipleValues")
+            collapsedJson = {"collapsedMessages": self.collapsedSendingArray}
+            self.collapsedSendingArray = []
+            self.threadedSendingQueue.put(postMessageObject(valuePostURI, collapsedJson))
+
 
     def makeValueSendingJson(self, value, utcTime):
         if utcTime == None:
@@ -559,11 +590,14 @@ class OpenSenseNetInstance:
                 #continue
             else:
                 # have a small break for letting the main thread proceed
-                time.sleep(0.01)
+                #time.sleep(0.001)
+                pass
 
             # obsolete as we switch to requests lib
             # handle = None
             messageObject = self.threadedSendingQueue.get()
+            #print messageObject.getPostUri()
+            #print messageObject.getJsonData()
             #self.logger.debug("api post worker received msg from queue - queue size: %s" % self.threadedSendingQueue.qsize())
             callURI = messageObject.getPostUri()
             jsonData = messageObject.getJsonData()
